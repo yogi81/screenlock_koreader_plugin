@@ -7,22 +7,23 @@ local InfoMessage = require("ui/widget/infomessage")
 local _ = require("gettext")
 
 local ScreenLock = WidgetContainer:extend{
-    name = "screenlock_inputdialog_buttons",
+    name = "screenlock_numpad_buttons",
     is_doc_only = false,
 
     locked   = false,      -- Track locked state
     password = "1234",     -- Your hard-coded password
     hide_content = true,   -- Hide screen content before password is entered
+    current_input = "",    -- Store the current input from numpad
 }
 
 ------------------------------------------------------------------------------
 -- REGISTER DISPATCHER ACTIONS
 ------------------------------------------------------------------------------
 function ScreenLock:onDispatcherRegisterActions()
-    Dispatcher:registerAction("screenlock_inputdialog_buttons_lock_screen", {
+    Dispatcher:registerAction("screenlock_numpad_buttons_lock_screen", {
         category = "none",
         event = "LockScreenButtons",
-        title = _("Lock Screen (InputDialog + Buttons)"),
+        title = _("Lock Screen"),
         filemanager = true,
     })
 end
@@ -50,24 +51,47 @@ end
 ------------------------------------------------------------------------------
 function ScreenLock:lockScreen()
     self.locked = true
-    self:showPasswordPrompt()
+    self.current_input = "" -- Reset input
+    self:showNumpadPrompt()
 end
 
 ------------------------------------------------------------------------------
--- SHOW PASSWORD PROMPT (USING BUTTONS ARRAY)
+-- SHOW NUMPAD PROMPT (USING BUTTONS ARRAY)
 -- "Cancel" button reopens the prompt, preventing escape
 ------------------------------------------------------------------------------
-function ScreenLock:showPasswordPrompt()
+function ScreenLock:showNumpadPrompt()
     local dialog
     dialog = InputDialog:new{
-        title           = _("Enter Password"),
-        input           = "",
+        title           = _("Enter Password (Numpad)"),
+        input           = self.current_input, -- Show current input
         maskinput       = true,
         text_type = "password",
         hint            = _("Password"),
         fullscreen      = self.hide_content,        -- request full screen mode
         use_available_height = self.hide_content,   -- use available screen height even when keyboard is shown
         buttons         = {
+            -- Numpad Buttons
+            {
+                {text = "1", callback = function() self:appendToInput("1", dialog) end},
+                {text = "2", callback = function() self:appendToInput("2", dialog) end},
+                {text = "3", callback = function() self:appendToInput("3", dialog) end},
+            },
+            {
+                {text = "4", callback = function() self:appendToInput("4", dialog) end},
+                {text = "5", callback = function() self:appendToInput("5", dialog) end},
+                {text = "6", callback = function() self:appendToInput("6", dialog) end},
+            },
+            {
+                {text = "7", callback = function() self:appendToInput("7", dialog) end},
+                {text = "8", callback = function() self:appendToInput("8", dialog) end},
+                {text = "9", callback = function() self:appendToInput("9", dialog) end},
+            },
+            {
+                {text = "*", callback = function() self:appendToInput("*", dialog) end},
+                {text = "0", callback = function() self:appendToInput("0", dialog) end},
+                {text = "#", callback = function() self:appendToInput("#", dialog) end},
+            },
+            -- Action Buttons
             {
                 {
                     text = _("Cancel"),
@@ -79,15 +103,21 @@ function ScreenLock:showPasswordPrompt()
                             }
                         )
                         UIManager:close(dialog)
-                        self:showPasswordPrompt()
+                        self:lockScreen() --Relock with reset input
+                    end
+                },
+                {
+                    text = _("Clear"),
+                    callback = function()
+                        self.current_input = ""
+                        dialog:setInputText(self.current_input)
                     end
                 },
                 {
                     text = _("OK"),
                     is_enter_default = true,
                     callback = function()
-                        local userInput = dialog:getInputText()
-                        if userInput == self.password then
+                        if self.current_input == self.password then
                             self.locked = false
                             UIManager:close(dialog)
                             UIManager:show(
@@ -104,7 +134,7 @@ function ScreenLock:showPasswordPrompt()
                                 }
                             )
                             UIManager:close(dialog)
-                            self:showPasswordPrompt()
+                            self:lockScreen() --Relock with reset input
                         end
                     end
                 },
@@ -112,7 +142,15 @@ function ScreenLock:showPasswordPrompt()
         },
     }
     UIManager:show(dialog)
-    dialog:onShowKeyboard()  -- Immediately open the on-screen keyboard
+    -- dialog:onShowKeyboard()  -- No need to open on-screen keyboard
+end
+
+------------------------------------------------------------------------------
+-- Append to input
+------------------------------------------------------------------------------
+function ScreenLock:appendToInput(digit, dialog)
+    self.current_input = self.current_input .. digit
+    dialog:setInputText(self.current_input)
 end
 
 ------------------------------------------------------------------------------
@@ -127,7 +165,7 @@ end
 -- MAIN MENU ENTRY
 ------------------------------------------------------------------------------
 function ScreenLock:addToMainMenu(menu_items)
-   menu_items.screenlock_inputdialog_buttons = {
+   menu_items.screenlock_numpad_buttons = {
        text = _("Lock Screen"),
        callback = function()
            self:lockScreen()
